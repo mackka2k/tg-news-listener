@@ -128,6 +128,16 @@ class NewsBot:
             # Forward today's old messages first
             await self._forward_today_messages()
             
+            # Send startup notification
+            try:
+                await self.client.send_message(
+                    self.config.TARGET_CHANNEL,
+                    "🚀 **News Bot Pasileido!**\n\nSistema veikia sėkmingai. Laukiu naujienų... 📡"
+                )
+                logger.info(f"✅ Startup message sent to {self.config.TARGET_CHANNEL}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send startup message: {e}")
+            
             # Setup handlers
             self._setup_handlers()
             
