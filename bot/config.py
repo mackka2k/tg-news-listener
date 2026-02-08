@@ -30,7 +30,7 @@ class Config(BaseModel):
     TARGET_CHANNEL: str = Field(..., description="Target channel for forwarding")
     
     # === FILTERING ===
-    MAX_POSTS_PER_DAY: int = Field(default=5, ge=1, le=100)
+    MAX_POSTS_PER_DAY: int = Field(default=0, ge=0)
     KEYWORDS: List[str] = Field(
         default_factory=list,
         description="Keywords to filter messages"
@@ -117,9 +117,7 @@ class Config(BaseModel):
     @field_validator('KEYWORDS')
     @classmethod
     def validate_keywords(cls, v):
-        """Validate keywords are set"""
-        if not v:
-            raise ValueError("KEYWORDS must contain at least one keyword")
+        """Allow empty keywords"""
         return v
     
     @field_validator('SPAM_KEYWORDS', mode='before')
