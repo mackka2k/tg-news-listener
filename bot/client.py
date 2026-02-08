@@ -74,8 +74,19 @@ class NewsBot:
         )
         
         # Telegram clients
+        from telethon.sessions import StringSession
+        import os
+        
+        session_str = os.getenv('SESSION_STRING')
+        if session_str:
+            session = StringSession(session_str)
+            logger.info("Using StringSession from environment variable")
+        else:
+            session = 'session'
+            logger.info("Using file session")
+            
         self.client = TelegramClient(
-            'session',
+            session,
             config.API_ID,
             config.API_HASH
         )
