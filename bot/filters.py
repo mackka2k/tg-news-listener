@@ -61,26 +61,26 @@ class MessageFilter:
             if spam_word in text_lower:
                 return False, f"Spam keyword: {spam_word}"
         
-        # 2. Check if message has at least one keyword (if keywords configured)
-        # Special case: if keywords contain "_DISABLED_", skip keyword filtering
-        if self.keywords and '_disabled_' not in self.keywords:
-            has_keyword = False
-            matched_keywords = []
+        # 2. Check keywords
+        # If no keywords configured, forward EVERYTHING (except spam)
+        if not self.keywords:
+             return True, "✅ No keyword filter (forwarding all)"
+
+        # Check against configured keywords
+        has_keyword = False
+        matched_keywords = []
+        
+        for keyword in self.keywords:
+            if keyword in text_lower:
+                has_keyword = True
+                matched_keywords.append(keyword)
+        
+        if not has_keyword:
+            return False, "Nėra keyword'ų" # Message rejected
             
-            for keyword in self.keywords:
-                if keyword in text_lower:
-                    has_keyword = True
-                    matched_keywords.append(keyword)
-            
-            if not has_keyword:
-                return False, "Nėra keyword'ų"
-            
-            # All checks passed with keywords
-            keywords_str = ', '.join(matched_keywords[:3])  # Show first 3 matches
-            return True, f"✅ Keyword match: {keywords_str}"
-        else:
-            # No keywords configured or disabled - forward everything (except spam)
-            return True, "✅ No keyword filter (forwarding all)"
+        # All checks passed with keywords
+        keywords_str = ', '.join(matched_keywords[:3])
+        return True, f"✅ Keyword match: {keywords_str}"
     
     def clean_message_text(self, text: str) -> str:
         """
