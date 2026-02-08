@@ -1,0 +1,23 @@
+# Core dependencies
+telethon>=1.36.0
+python-dotenv>=1.0.0
+
+# AI service
+groq>=0.4.0
+
+# Monitoring and observability
+sentry-sdk>=1.40.0
+prometheus-client>=0.19.0
+
+# Configuration and validation
+pydantic>=2.5.0
+
+# Database
+aiosqlite>=0.19.0
+
+# Health check server
+aiohttp>=3.9.0
+
+# Text comparison and deduplication - NEW!
+thefuzz>=0.20.0
+python-levenshtein>=0.23.0
