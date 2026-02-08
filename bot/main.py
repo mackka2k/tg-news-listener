@@ -97,22 +97,41 @@ async def main() -> None:
     )
     
     
-    # Setup signal handlers for graceful shutdown (Unix only)
+    # Stop event for graceful shutdown
+    stop_event = asyncio.Event()
+
+    # Define simple handler
+    def request_stop():
+        logger.info("🛑 Stop signal received, shutting down gracefully...")
+        stop_event.set()
+
     if sys.platform != 'win32':
-        loop = asyncio.get_event_loop()
-        
-        def signal_handler(sig):
-            logger.info(f"Received signal {sig}, initiating shutdown...")
-            asyncio.create_task(bot.shutdown())
-            loop.stop()
-        
-        # Register signal handlers
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
-    
-    # Start bot
+        # Use asyncio signal handlers on Linux/Mac
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGINT, request_stop)
+        loop.add_signal_handler(signal.SIGTERM, request_stop)
+    else:
+        # Windows doesn't support add_signal_handler
+        # We rely on KeyboardInterrupt for local dev
+        pass
+
     try:
-        await bot.start()
+        logger.info("🚀 Starting NewsBot...")
+        
+        # Run bot in background task
+        bot_task = asyncio.create_task(bot.start())
+        
+        # Monitor stop event
+        # On Windows, we need to poll to catch KeyboardInterrupt
+        while not stop_event.is_set():
+            if bot_task.done():
+                if bot_task.exception():
+                    raise bot_task.exception()
+                break
+            await asyncio.sleep(0.5)
+            
+    except asyncio.CancelledError:
+        logger.info("Main task cancelled")
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
     except Exception as e:
@@ -120,6 +139,7 @@ async def main() -> None:
         monitoring.record_error("fatal_error", e)
         sys.exit(1)
     finally:
+        logger.info("🛑 Shutting down...")
         await bot.shutdown()
 
 
