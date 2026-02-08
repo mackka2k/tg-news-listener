@@ -42,6 +42,7 @@ class HealthCheckServer:
         self.last_message_time: Optional[datetime] = None
         
         # Setup routes
+        self.app.router.add_get('/', self.health_handler)  # Root redirects to health
         self.app.router.add_get('/health', self.health_handler)
         self.app.router.add_get('/ready', self.ready_handler)
         self.app.router.add_get('/metrics', self.metrics_handler)
