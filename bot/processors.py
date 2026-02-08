@@ -72,32 +72,48 @@ class MessageProcessor:
             logger.debug("Message text empty after cleaning, skipping")
             return None
         
-        # Generate tags
-        tags = await self.ai.generate_tags(cleaned_text)
+        # AI Analysis
+        analysis = await self.ai.analyze_content(cleaned_text)
         
-        # Combine text and tags
-        final_text = f"{cleaned_text}\n\n{tags}"
+        tags = analysis.get("tags", "")
+        summary = analysis.get("summary")
+        reliability = analysis.get("reliability")
+        
+        # Build Footer
+        footer_parts = []
+        
+        ai_metrics = []
+        if reliability is not None:
+            try:
+                score = int(reliability)
+                icon = "🟢" if score >= 8 else "🟡" if score >= 5 else "🔴"
+                ai_metrics.append(f"Patikimumas: {icon} {score}/10")
+            except: pass
+            
+        if ai_metrics:
+            footer_parts.append(f"🤖 {' | '.join(ai_metrics)}")
+            
+        footer_text = "\n".join(footer_parts)
+        
+        # Combine text, footer and tags
+        final_text = f"{cleaned_text}\n\n{footer_text}\n\n{tags}"
         
         # Check length and truncate if needed
         if len(final_text) > MAX_CAPTION_LENGTH:
-            logger.warning(f"Text too long ({len(final_text)} chars), truncating")
-            
-            # Calculate available space for text
-            available_space = MAX_CAPTION_LENGTH - len(tags) - 10  # 10 for newlines and buffer
-            
-            if available_space > 100:  # Only truncate if we have reasonable space
-                cleaned_text = truncate_text(cleaned_text, available_space)
-                final_text = f"{cleaned_text}\n\n{tags}"
+            # Simple truncation logic to keep footer
+            available = MAX_CAPTION_LENGTH - len(footer_text) - len(tags) - 20
+            if available > 100:
+                cleaned_text = truncate_text(cleaned_text, available)
+                final_text = f"{cleaned_text}\n\n{footer_text}\n\n{tags}"
             else:
-                # Text is too short even after truncation, use without tags
                 final_text = truncate_text(cleaned_text, MAX_CAPTION_LENGTH)
-                logger.warning("Removed tags due to length constraints")
         
         return {
             'original_text': original_text,
             'cleaned_text': cleaned_text,
             'final_text': final_text,
             'tags': tags,
+            'analysis': analysis,
             'media': message.media,
             'source_channel': source_channel,
             'message_id': message.id,

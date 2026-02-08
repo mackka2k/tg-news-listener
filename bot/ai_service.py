@@ -34,79 +34,76 @@ class AIService:
         else:
             logger.info("No Groq API key provided, using fallback tagging")
     
-    async def generate_tags(self, text: str) -> str:
+    async def analyze_content(self, text: str) -> dict:
         """
-        Generate hashtags for message text
+        Analyze content for tags, reliability, and summary using Groq AI
         
         Args:
             text: Message text
         
         Returns:
-            Generated hashtags as string
+            Dictionary with analysis results
         """
-        if not text:
-            return "#Naujienos"
+        result = {
+            "tags": self._generate_fallback_tags(text),
+            "summary": None,
+            "reliability": None,
+            "clickbait": None,
+            "sentiment": None
+        }
         
-        # Try AI generation first
-        if self.client:
-            try:
-                ai_tags = await self._generate_ai_tags(text)
-                if ai_tags and ai_tags.startswith('#'):
-                    return ai_tags
-            except Exception as e:
-                logger.error(f"AI tag generation failed: {e}")
-        
-        # Fallback to rule-based tagging
-        return self._generate_fallback_tags(text)
-    
-    async def _generate_ai_tags(self, text: str) -> Optional[str]:
-        """
-        Generate tags using Groq AI
-        
-        Args:
-            text: Message text
-        
-        Returns:
-            AI-generated tags or None
-        """
-        if not self.client:
-            return None
-        
-        prompt = f"""
-        Analyze the text and generate 1-4 SHORT, ACCURATE hashtags in Lithuanian.
-        
-        Rules:
-        1. Use ONLY generic categories: #Karas, #Rusija, #Technologijos, #Kriminalai, #Pasaulis, #Sveikata, #Žaidimai, #Kripto, #AI, #Mokslas, #Politika.
-        2. DO NOT mention #Lietuva unless the text specifically mentions Lithuania.
-        3. DO NOT invent long tags. Keep them short and generic.
-        4. Output ONLY the tags, separated by spaces.
-        5. Maximum 4 tags.
-        
-        Text: {text[:500]}
-        """
+        if not self.client or not text or len(text) < 50:
+            return result
         
         try:
+            prompt = f"""
+            Analyze the following news text and provide a JSON response.
+            
+            Text: {text[:1000]}
+            
+            Response Format (strict JSON):
+            {{
+                "tags": "3-4 concise Lithuanian hashtags (e.g. #Karas #Technologijos)",
+                "reliability_score": "Integer 1-10 (10=Highly Reliable, 1=Fake/Propaganda)",
+                "sentiment": "Positive/Neutral/Negative",
+                "reasoning": "Very short reason for reliability score"
+            }}
+            
+            Rules:
+            1. Reliability: Penalize lack of sources, emotional language, propaganda.
+            2. Tags: Must be generic categories in Lithuanian.
+            """
+            
             completion = self.client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
-                max_tokens=50,
-                timeout=10.0
+                temperature=0.3, # Lower temperature for consistency
+                max_tokens=200,
+                response_format={"type": "json_object"}
             )
             
-            tags = completion.choices[0].message.content.strip()
+            import json
+            content = completion.choices[0].message.content
+            data = json.loads(content)
             
-            # Validate tags
-            if tags and all(tag.startswith('#') for tag in tags.split()):
-                return tags
+            result["tags"] = data.get("tags", result["tags"])
+            result["summary"] = data.get("summary")
+            result["reliability"] = data.get("reliability_score")
+            result["clickbait"] = data.get("clickbait_score")
+            result["sentiment"] = data.get("sentiment")
+            result["reasoning"] = data.get("reasoning")
             
-            logger.warning(f"Invalid AI tags format: {tags}")
-            return None
+            return result
             
         except Exception as e:
-            logger.error(f"Groq API error: {e}")
-            return None
-    
+            logger.error(f"AI analysis failed: {e}")
+            return result
+
+    async def generate_tags(self, text: str) -> str:
+        """Legacy method for backward compatibility"""
+        analysis = await self.analyze_content(text)
+        return analysis["tags"]
+        
     def _generate_fallback_tags(self, text: str) -> str:
         """
         Generate tags using rule-based approach
